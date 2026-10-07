@@ -1,0 +1,38 @@
+# Build artifacts
+/bin/
+/dist/
+*.exe
+*.test
+
+# Coverage reports
+/coverage/
+*.out
+coverage.html
+
+# Go workspace files
+go.work
+go.work.sum
+
+# IDE files
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local configuration
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+/tmp/
+*.tmp
+*.log
+
+# Automation
+/automation/

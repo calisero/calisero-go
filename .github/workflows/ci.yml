@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ published ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  quality:
+    name: Lint & Vet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+
+      - name: Verify the module
+        run: go mod verify
+
+      - name: Check that go.mod is tidy
+        run: go mod tidy -diff
+
+      - name: Check the formatting (gofmt)
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Not formatted with gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      # Built with the Go release above, so that it reads the code of every supported release
+      - name: Lint (golangci-lint)
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0
+          install-mode: goinstall
+
+  test:
+    name: Tests (Go ${{ matrix.go-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [ '1.22', '1.23', '1.24', '1.25', '1.26', '1.27' ]
+
+    # The go command runs the release of the matrix, never a newer one it would download
+    env:
+      GOTOOLCHAIN: local
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Run tests (race detector)
+        if: matrix.go-version != '1.27'
+        run: go test -race -count=1 ./...
+
+      # Coverage is collected once, of the library alone (the examples have no tests);
+      # the run fails below 98% of the statements
+      - name: Run tests with coverage (race detector)
+        if: matrix.go-version == '1.27'
+        run: |
+          mkdir -p coverage
+          go test -race -count=1 -covermode=atomic -coverprofile=coverage/coverage.out .
+          go tool cover -html=coverage/coverage.out -o coverage/index.html
+          total="$(go tool cover -func=coverage/coverage.out | awk '/^total:/ { sub("%", "", $3); print $3 }')"
+          echo "Coverage: ${total}% of the statements"
+          awk -v total="$total" 'BEGIN { exit !(total + 0 >= 98) }' || { echo "Coverage below 98%"; exit 1; }
+
+      - name: Upload coverage report
+        if: matrix.go-version == '1.27'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+      # The README's coverage badge; needs the repository enabled on codecov.io, never fails the build
+      - name: Upload coverage to Codecov
+        if: matrix.go-version == '1.27'
+        uses: codecov/codecov-action@v7
+        continue-on-error: true
+        with:
+          files: coverage/coverage.out
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  os:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest, macos-latest ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+
+      - name: Run tests
+        run: go test -count=1 ./...
+
+  examples:
+    name: Examples & Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+
+      - name: Build the examples
+        run: go build ./examples/...
+
+      - name: Vet the examples
+        run: go vet ./examples/...
+
+      # The examples pkg.go.dev shows (example_test.go): all compile, those with an output run
+      - name: Run the documentation examples
+        run: go test -count=1 -run '^Example' .
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      # The library has no dependency: govulncheck checks the code against the
+      # vulnerabilities of the Go standard library it calls
+      - name: Check for vulnerabilities (govulncheck)
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: '1.27'
+          go-package: ./...
+
+  qa:
+    name: Quality Assurance
+    runs-on: ubuntu-latest
+    needs: [ quality, test, os, examples, security ]
+
+    steps:
+      - name: Success notification
+        run: echo "✅ All quality assurance checks passed on every supported Go release!"
+
+  publish:
+    name: Publish to the Go module proxy
+    runs-on: ubuntu-latest
+    needs: [ qa ]
+    if: github.event_name == 'release'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27'
+
+      # Go reads a module's versions from its tags, which must be vX.Y.Z
+      - name: Check the release tag matches the library version
+        run: |
+          VERSION="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' version.go)"
+          test "${GITHUB_REF_NAME}" = "v${VERSION}" || { echo "Tag ${GITHUB_REF_NAME} does not match version v${VERSION} of version.go"; exit 1; }
+
+      # The proxy fetches the version from the tag: asking for it publishes it on
+      # proxy.golang.org and pkg.go.dev at once, rather than on its first download
+      - name: Fetch the version through the Go module proxy
+        run: GOPROXY=https://proxy.golang.org go list -m "github.com/calisero/calisero-go@${GITHUB_REF_NAME}"

@@ -1,0 +1,43 @@
+version: "2"
+
+run:
+  # The oldest Go release the library supports: no linter may suggest what it lacks
+  go: "1.22"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - gosec
+    - misspell
+    - nolintlint
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+  settings:
+    nolintlint:
+      # A //nolint says which linter it silences, and why
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      # Fixtures: test keys, tokens and local servers, and the canned answers of the
+      # stub HTTP client, whose bodies the client closes
+      - path: _test\.go
+        linters:
+          - bodyclose
+          - gosec
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/calisero/calisero-go

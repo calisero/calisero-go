@@ -1,0 +1,9 @@
+# LF everywhere, on every platform: gofmt writes LF
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+
+# Kept out of the archives GitHub builds for a release (the Go module proxy builds
+# its own from the tag)
+/.github export-ignore
