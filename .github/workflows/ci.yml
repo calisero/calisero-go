@@ -192,11 +192,15 @@ jobs:
         with:
           go-version: '1.27'
 
-      # Go reads a module's versions from its tags, which must be vX.Y.Z
+      # Go reads a module's versions from its tags, which must be vX.Y.Z: a tag 1.2.3
+      # is no version to Go, and `go get` would resolve it to a pseudo-version
       - name: Check the release tag matches the library version
         run: |
           VERSION="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' version.go)"
-          test "${GITHUB_REF_NAME}" = "v${VERSION}" || { echo "Tag ${GITHUB_REF_NAME} does not match version v${VERSION} of version.go"; exit 1; }
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::The release tag is ${GITHUB_REF_NAME}, the version of version.go is ${VERSION}: Go needs the tag v${VERSION}. Delete this release and its tag, then publish a release with the tag v${VERSION}."
+            exit 1
+          fi
 
       # The proxy fetches the version from the tag: asking for it publishes it on
       # proxy.golang.org and pkg.go.dev at once, rather than on its first download
