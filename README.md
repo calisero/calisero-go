@@ -814,6 +814,11 @@ Every request goes to `https://rest.calisero.ro/api/v1` with a 30-second timeout
 [`User-Agent`](#user-agent) below. The default HTTP client follows no redirect: the API answers with one only when
 something is wrong, and the API key stays on its host.
 
+The API accepts TLS 1.2 and TLS 1.3 only, and refuses older versions from 1 November 2026. Go's HTTP client offers
+TLS 1.2 and 1.3 by default, so the library needs nothing for it; a client given with `WithHTTPClient` must not set a
+`tls.Config` whose `MaxVersion` is below TLS 1.2. Keep the base URL on `https://`: the API redirects `http://`, and
+the default client answers that redirect as an error rather than resending the request.
+
 ### User-Agent
 
 Every request names the library and its version, then the runtime, so Calisero can tell its requests apart and see

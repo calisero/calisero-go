@@ -4,7 +4,7 @@ The library's tests live next to its code, in the `*_test.go` files, and run wit
 network: the services run against a stub HTTP client, and the HTTP layer and the webhook handler against local HTTP
 servers (`net/http/httptest`) on `127.0.0.1`. They use the standard library only, like the library itself.
 
-As of 1.0.0 the suite has **178 tests in 14 files** (299 with their subtests), plus 10 documentation examples, and
+As of 1.0.1 the suite has **178 tests in 14 files** (299 with their subtests), plus 10 documentation examples, and
 covers 100% of the statements of the library. CI runs it with the race detector, and fails below 98% of the
 statements.
 

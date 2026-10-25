@@ -45,8 +45,10 @@ type openAPIOperation struct {
 	RequestBody *struct {
 		Content map[string]openAPIMediaType `json:"content"`
 	} `json:"requestBody"`
-	// The delivery webhook, which Calisero sends rather than answers, documents none
 	Responses map[string]openAPIResponse `json:"responses"`
+	// The requests Calisero sends because of the call, the delivery webhook among them:
+	// by callback name, then runtime expression, then method
+	Callbacks map[string]map[string]map[string]openAPIOperation `json:"callbacks"`
 }
 
 type openAPIDocument struct {
@@ -142,15 +144,12 @@ type documentedOperation struct {
 	path   string
 }
 
-// operations are the operations of the API, its webhook left out, by path and method.
+// operations are the operations of the API, by path and method. The delivery webhook, which
+// Calisero sends rather than answers, is a callback of POST /messages, not one of them.
 func (d *openAPIDocument) operations() []documentedOperation {
 	var operations []documentedOperation
 
 	for _, path := range sortedKeys(d.Paths) {
-		if !strings.HasPrefix(path, "/") {
-			continue
-		}
-
 		for _, method := range sortedKeys(d.Paths[path]) {
 			operations = append(operations, documentedOperation{d.Paths[path][method], strings.ToUpper(method), path})
 		}
@@ -277,7 +276,7 @@ var contractCalls = map[string]struct {
 func TestContractTheOpenAPIDocumentIsTheVersionThisLibraryWasBuiltFor(t *testing.T) {
 	document := loadOpenAPI(t)
 
-	equal(t, strings.HasPrefix(document.Info.Version, "1.0.14 "), true, "version "+document.Info.Version)
+	equal(t, strings.HasPrefix(document.Info.Version, "1.0.16 "), true, "version "+document.Info.Version)
 	equal(t, document.Servers[0].URL, calisero.DefaultBaseURL, "server")
 }
 
@@ -443,7 +442,7 @@ func TestContractEveryDocumentedFieldOfThePaginationIsRead(t *testing.T) {
 
 func TestContractTheDocumentedDeliveryWebhookIsReadEveryFieldOfIt(t *testing.T) {
 	document := loadOpenAPI(t)
-	webhook := document.Paths["https://yoursite.com/your-callback-url"]["post"]
+	webhook := document.Paths["/messages"]["post"].Callbacks["deliveryStatus"]["{$request.body#/callback_url}"]["post"]
 	example := webhook.RequestBody.Content["application/json"].Example
 
 	message, err := calisero.ParseDeliveryWebhook(example)
