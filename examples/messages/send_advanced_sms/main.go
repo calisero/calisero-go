@@ -1,7 +1,11 @@
 // Send an SMS with every option: a body shown masked, a validity, a scheduled
 // time, a delivery status callback, a sender ID and URL shortening.
 //
-//	CALISERO_API_KEY=... CALISERO_TEST_PHONE=+40742123456 go run ./examples/messages/send_advanced_sms
+// The sender ID comes from CALISERO_SENDER: one approved for your account, written
+// exactly as approved (the match is case-sensitive). Without it the message goes out
+// under the default sender; an unknown or unapproved one is refused with a 422.
+//
+//	CALISERO_API_KEY=... CALISERO_TEST_PHONE=+40742123456 CALISERO_SENDER=YourBrand go run ./examples/messages/send_advanced_sms
 package main
 
 import (
@@ -20,6 +24,8 @@ import (
 func main() {
 	apiKey := cmp.Or(os.Getenv("CALISERO_API_KEY"), "your-api-key-here")
 	recipient := cmp.Or(os.Getenv("CALISERO_TEST_PHONE"), "+40742***350")
+	// One of your approved sender IDs; empty for the default sender
+	sender := os.Getenv("CALISERO_SENDER")
 
 	client, err := calisero.NewClient(apiKey)
 	if err != nil {
@@ -37,8 +43,7 @@ func main() {
 		// A time.Time is converted to the Romania time the API expects
 		ScheduleAt:  time.Now().Add(time.Hour),
 		CallbackURL: "https://yourapp.com/webhooks/sms",
-		// One of your approved sender IDs; leave it out for the default sender
-		Sender:      "Calisero",
+		Sender:      sender,
 		ShortenURLs: true,
 	})
 	if err != nil {

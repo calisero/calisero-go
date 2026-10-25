@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-25
+
+Support for version 1.0.16 of the Calisero API, whose changes are all on the API's side. The library's code and API are unchanged; only the version in the `User-Agent` header moves to 1.0.1.
+
+### Changed
+- `examples/messages/send_advanced_sms` reads the sender ID from `CALISERO_SENDER`, and sends under the default sender without it. It used `Calisero`, which the API documents as a placeholder: a sender that is not approved for the account is refused with a 422, and nothing is sent.
+
+### Documentation
+- `AGENTS.md`: guidance for AI coding agents, both for integrating Calisero into an application with this library (configuration, sending, OTP, statuses, the delivery webhook, errors and trace IDs, sandbox keys, the pitfalls of the API) and for working on the library.
+- `README.md`: the API accepts TLS 1.2 and TLS 1.3 only from 1 November 2026, which Go's HTTP client offers by default, and redirects `http://` to `https://`.
+- `examples/README.md`: the `CALISERO_SENDER` variable.
+
+### Tests
+- The contract tests follow version 1.0.16 of the API's OpenAPI document (`resources/openApi/api-v1.json`), which documents the delivery status webhook as a callback of `POST /messages` rather than as a path of its own, and the answer to `PUT /opt-outs/{optOutId}` with an example.
+
+### Notes
+- Version 1.0.15 of the API checks more on its side, each refusal a 422 the library returns as a `*ValidationError`: a sender must be approved for the account and written exactly as approved (the match is case-sensitive); a callback URL must be a public `http` or `https` address (private, loopback and link-local addresses are refused, and redirects are not followed); the brand and the template of a verification may not contain links.
+
 ## [1.0.0] - 2026-10-06
 
 First release of the official Go library for the Calisero SMS API, covering version 1.0.14 of the API: the same API surface as `calisero/calisero-php` 2.3.1 and `@calisero/calisero-node` 1.0.1, with an idiomatic Go interface.

@@ -39,6 +39,8 @@ examples/
    - `CALISERO_API_KEY`: your API key (a sandbox key sends no real message and costs nothing)
    - `CALISERO_TEST_PHONE`: the phone number to send to, in E.164 format (e.g. `+40742123456`)
    - `CALISERO_ACCOUNT_ID`: your account ID, for the account examples
+   - `CALISERO_SENDER`: a sender ID approved for your account, written exactly as approved, for `send_advanced_sms`;
+     the default sender when it is empty (an unknown or unapproved sender is refused with a 422)
 
 2. **Run an example** from the repository's root: the examples use the library of the working copy.
    ```bash
