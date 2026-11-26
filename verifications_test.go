@@ -133,6 +133,8 @@ func TestVerificationsValidateOfAWrongCode(t *testing.T) {
 	for _, message := range []string{
 		"The validation code is incorrect.",
 		"The validation code has expired.",
+		// A code validates only once (API 1.0.17)
+		"The validation code has already been used.",
 		"The maximum number of verification attempts has been exceeded.",
 	} {
 		client, _ := clientAnswering(t, jsonResponse(422, object{"message": message, "errors": object{"code": []any{message}}}))

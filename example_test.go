@@ -131,7 +131,7 @@ func ExampleVerificationService_Validate() {
 
 	switch {
 	case errors.As(err, &validationError):
-		// A wrong or expired code, or too many attempts (5)
+		// A wrong, expired or already used code, or too many attempts (5)
 		fmt.Println(validationError.ValidationErrors["code"])
 	case err != nil:
 		log.Fatal(err)

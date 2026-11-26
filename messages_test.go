@@ -153,6 +153,45 @@ func TestMessagesCreateRefusesAnOptedOutRecipient(t *testing.T) {
 	deepEqual(t, validation.ValidationErrors["recipient"], []string{"The recipient has opted out of receiving messages."}, "recipient")
 }
 
+func TestMessagesCreateRefusesASenderNotApproved(t *testing.T) {
+	client, stub := clientAnswering(t, jsonResponse(422, object{
+		"message":  "The sender is invalid or is not approved.",
+		"errors":   object{"sender": []any{"The sender is invalid or is not approved."}},
+		"trace_id": traceID,
+	}))
+
+	_, err := client.Messages.Create(context.Background(), &calisero.CreateMessageRequest{Recipient: phone, Body: "Hello!", Sender: "calisero"})
+
+	validation := errorAs[*calisero.ValidationError](t, err)
+	equal(t, validation.Message, "The sender is invalid or is not approved.", "message")
+	deepEqual(t, validation.ValidationErrors["sender"], []string{"The sender is invalid or is not approved."}, "sender")
+	equal(t, validation.TraceID, traceID, "trace ID")
+	// Sent as written: the API matches the sender case-sensitively
+	equal(t, stub.lastRequest(t).JSON(t)["sender"], any("calisero"), "sender sent")
+}
+
+func TestMessagesCreateRefusesALinkToADomainNotApproved(t *testing.T) {
+	refusal := "Links to example.live are not allowed for this account: it is not one of its approved link domains."
+	client, stub := clientAnswering(t, jsonResponse(422, object{
+		"message":  refusal,
+		"errors":   object{"body": []any{refusal}},
+		"trace_id": traceID,
+	}, "X-Trace-Id", traceID))
+
+	_, err := client.Messages.Create(context.Background(), &calisero.CreateMessageRequest{
+		Recipient:   phone,
+		Body:        "Your order has shipped: www.example.live/track/1001",
+		ShortenURLs: true,
+	})
+
+	validation := errorAs[*calisero.ValidationError](t, err)
+	equal(t, validation.Message, refusal, "message")
+	deepEqual(t, validation.ValidationErrors, map[string][]string{"body": {refusal}}, "field errors")
+	equal(t, validation.TraceID, traceID, "trace ID")
+	// The body goes as written: the API checks its links, shortened ones by the address they open
+	equal(t, stub.lastRequest(t).JSON(t)["body"], any("Your order has shipped: www.example.live/track/1001"), "body sent")
+}
+
 func TestMessagesCreateNeedsARequest(t *testing.T) {
 	client, stub := clientAnswering(t)
 

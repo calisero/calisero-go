@@ -4,7 +4,23 @@ All notable changes to `github.com/calisero/calisero-go` will be documented in t
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.2] - 2026-11-26
+
+Support for version 1.0.17 of the Calisero API, approved link domains included. Its changes are all on the API's side: the library's code and API are unchanged, and only the version in the `User-Agent` header moves to 1.0.2. Two of them change what an application sees, though: a verification code now validates only once, and an account restricted to its approved link domains may link only to them.
+
+### Changed
+- **A verification code validates only once.** `Verifications.Validate()` used to succeed again for a code already verified; the API now refuses it with a 422, which the library returns as a `*ValidationError` ("The validation code has already been used." on `ValidationErrors["code"]`). An application that validated the same code twice, e.g. on a resubmitted form, must record the first success itself. The doc comment of `Validate()` said a verified code validated again, and no longer does.
+- **Approved link domains.** On an account restricted to its approved link domains (accounts created since the rule took effect, and older ones Calisero restricts), every link in a message's body must go to a domain approved for the account, test messages included; links Calisero shortens are checked by the address they open. `Messages.Create()` returns any other link as a `*ValidationError` on `ValidationErrors["body"]`, its message naming the refused domain: the message is not created, not sent and not billed. A scheduled message whose domain is rejected or revoked before it is due is not sent: its status becomes `failed` (error code 1005 in the dashboard). The domains are asked for in the dashboard (Messages › Link domains).
+- `examples/verifications/validate_verification` no longer suggests that a code may be validated again; `examples/messages/send_advanced_sms` says its link must go to one of your approved domains.
+
+### Documentation
+- `README.md`: a code validates only once; a new "Approved Link Domains" section, with how to tell a refused link domain from a refused sender and from other validation errors; a sender that is unknown, still pending, rejected or another account's is refused with a `*ValidationError` on the `sender` field; test messages (a sandbox account or a sandbox API key) keep their links as written, with an empty `ShortenedURLs`.
+- `AGENTS.md`: the same rules.
+- The doc comments of `Messages.Create()` and `CreateMessageRequest.Body` name the refused fields and the approved link domains.
+
+### Tests
+- The contract tests follow version 1.0.17 of the API's OpenAPI document: the code already used among the 422s of `PUT /verifications/validate`, and a sender and a link domain that are not approved among the 422s of `POST /messages`.
+- A code already used among the refusals of `Validate()`, and a sender and a link domain that are not approved among those of `Messages.Create()`.
 
 ## [1.0.1] - 2026-10-25
 

@@ -276,7 +276,7 @@ var contractCalls = map[string]struct {
 func TestContractTheOpenAPIDocumentIsTheVersionThisLibraryWasBuiltFor(t *testing.T) {
 	document := loadOpenAPI(t)
 
-	equal(t, strings.HasPrefix(document.Info.Version, "1.0.16 "), true, "version "+document.Info.Version)
+	equal(t, strings.HasPrefix(document.Info.Version, "1.0.17 "), true, "version "+document.Info.Version)
 	equal(t, document.Servers[0].URL, calisero.DefaultBaseURL, "server")
 }
 

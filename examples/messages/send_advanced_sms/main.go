@@ -5,6 +5,10 @@
 // exactly as approved (the match is case-sensitive). Without it the message goes out
 // under the default sender; an unknown or unapproved one is refused with a 422.
 //
+// On an account restricted to its approved link domains, every link of the body must
+// go to one of them: put a link to one of your approved domains in place of
+// yourapp.com, or the message is refused with a 422 on the body.
+//
 //	CALISERO_API_KEY=... CALISERO_TEST_PHONE=+40742123456 CALISERO_SENDER=YourBrand go run ./examples/messages/send_advanced_sms
 package main
 
