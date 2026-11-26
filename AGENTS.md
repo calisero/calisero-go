@@ -75,7 +75,7 @@ response, err := client.Verifications.Validate(ctx, &calisero.VerificationCheckR
 var invalid *calisero.ValidationError
 switch {
 case errors.As(err, &invalid):
-	// wrong or expired code, or too many attempts (422): invalid.Message says which
+	// wrong, expired or already used code, or too many attempts (422): invalid.Message says which
 case err != nil:
 	return err
 default:
@@ -142,7 +142,7 @@ happened to that request.
   Implementation" in `README.md`).
 - Staging and CI against the real API: use a sandbox API key. It goes through the same validation but sends nothing,
   bills nothing and never counts towards the daily limit; the message is `delivered` at once, callbacks still arrive,
-  and a test OTP code shows in the dashboard.
+  and a test OTP code shows in the dashboard. Its links are never shortened: `ShortenedURLs` stays empty.
 
 ### Rules that matter
 
@@ -152,8 +152,17 @@ happened to that request.
   takes at most 1600 characters. When cost matters, a text without diacritics keeps 160-character parts: an option,
   not a rule.
 - **Sender ID**: alphanumeric, at most 11 characters, approved for the account and written exactly as approved;
-  otherwise 422 and nothing is sent. Leave `Sender` empty for the default sender. It cannot receive replies. Never
-  take it from user input. OTP codes go out from the shared "Verify" sender and need no sender of your own.
+  an unknown, pending, rejected or another account's sender is a 422 ("The sender is invalid or is not approved." on
+  `ValidationErrors["sender"]`) and nothing is sent. Leave `Sender` empty for the default sender. It cannot receive
+  replies. Never take it from user input. OTP codes go out from the shared "Verify" sender and need no sender of your
+  own.
+- **Links**: an account restricted to its approved link domains (every account created since the rule took effect)
+  may link only to them, sandbox included: every `http(s)://` address, `www.` address or bare host (`example.ro/path`)
+  in `Body` must go to an approved domain, exactly (`www.` aside), its subdomains only if approved with them, never an
+  IP address; shortened links are checked by the address they open. Any other link is a 422 on
+  `ValidationErrors["body"]`, its message naming the domain, and nothing is created. The domains are asked for in the
+  dashboard (Messages › Link domains), not through the API. A scheduled message whose domain is revoked before it is
+  due ends `failed` (error code 1005 in the dashboard), not billed.
 - **Scheduling**: the API reads `schedule_at` as `YYYY-MM-DD HH:MM:SS`, Romania time (Europe/Bucharest);
   `ScheduleAt` converts any `time.Time`, and the zero time sends at once.
 - **Webhooks**: answer any 2xx within 2 seconds, do the work afterwards. Only a timeout or a failed connection is
@@ -167,7 +176,8 @@ happened to that request.
 - **No idempotency key**: the library never retries, and you should not retry `Messages.Create` blindly after a
   timeout or a `*TransportError`: the SMS may have been sent and billed. Check `Messages.List` first.
 - **OTP**: `Brand` or a `Template` holding `{code}`, neither with links. Each code is a billed SMS that counts towards
-  the daily limit: rate-limit resends in your application.
+  the daily limit: rate-limit resends in your application. A code validates only once: validating it again is a 422
+  ("The validation code has already been used."), so record the success on your side.
 
 ## Working on this library
 

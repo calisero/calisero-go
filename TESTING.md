@@ -4,7 +4,7 @@ The library's tests live next to its code, in the `*_test.go` files, and run wit
 network: the services run against a stub HTTP client, and the HTTP layer and the webhook handler against local HTTP
 servers (`net/http/httptest`) on `127.0.0.1`. They use the standard library only, like the library itself.
 
-As of 1.0.1 the suite has **178 tests in 14 files** (299 with their subtests), plus 10 documentation examples, and
+As of 1.0.2 the suite has **180 tests in 14 files** (303 with their subtests), plus 10 documentation examples, and
 covers 100% of the statements of the library. CI runs it with the race detector, and fails below 98% of the
 statements.
 
@@ -66,9 +66,9 @@ Each test answers with a stub HTTP client (`stubDoer` in `helpers_test.go`) and 
 
 | File | Tests | Covers |
 |---|---|---|
-| `messages_test.go` | 21 | `Create()` with every option and with the minimal ones, `ScheduleAt` in Romania time (summer and winter time, the switches between them, midnight, other zones), shortened links, its `ResponseMeta`, the daily limit and validation errors; `Get()`, IDs escaped, empty IDs refused, unexpected answers; `List()` and its pages, malformed pages; `Delete()` and its answers |
+| `messages_test.go` | 23 | `Create()` with every option and with the minimal ones, `ScheduleAt` in Romania time (summer and winter time, the switches between them, midnight, other zones), shortened links, its `ResponseMeta`, the daily limit and validation errors (an opted-out recipient, a sender and a link domain not approved); `Get()`, IDs escaped, empty IDs refused, unexpected answers; `List()` and its pages, malformed pages; `Delete()` and its answers |
 | `optouts_test.go` | 10 | `Create()` with and without a reason, a duplicate; `Get()`, `List()`, `Update()`, `Delete()`; invalid arguments |
-| `verifications_test.go` | 11 | `List()` with and without the status filter; `Create()` with a brand or a template, the daily limit; `Get()`; `Validate()` and each of its 422s, and its 404; invalid arguments |
+| `verifications_test.go` | 11 | `List()` with and without the status filter; `Create()` with a brand or a template, the daily limit; `Get()`; `Validate()` and each of its 422s (a wrong, expired or already used code, too many attempts), and its 404; invalid arguments |
 | `accounts_test.go` | 5 | `Get()` for a typical account and a sandbox one without a daily limit; 401 and 403; an empty ID |
 
 ### Webhooks (`webhook_test.go`)
@@ -87,7 +87,7 @@ Each test answers with a stub HTTP client (`stubDoer` in `helpers_test.go`) and 
 
 | File | Tests | Covers |
 |---|---|---|
-| `contract_test.go` | 8 (116 subtests) | The client against the API's OpenAPI document (`resources/openApi/api-v1.json`): every documented operation is implemented, and none other, with its method, path and query; every documented example answer is read; every documented field of every resource is read and written back; every documented request field can be sent, and nothing else; every documented error example maps to its error type with its message |
+| `contract_test.go` | 8 (118 subtests) | The client against the API's OpenAPI document (`resources/openApi/api-v1.json`): every documented operation is implemented, and none other, with its method, path and query; every documented example answer is read; every documented field of every resource is read and written back; every documented request field can be sent, and nothing else; every documented error example maps to its error type with its message |
 
 When the API changes, replace `resources/openApi/api-v1.json` with the new document: the contract tests then show
 what the library lacks.

@@ -40,7 +40,8 @@ func main() {
 
 	switch {
 	case errors.As(err, &validationError):
-		// A wrong code, an expired one, or too many attempts (5)
+		// A wrong code, an expired one, one already used (a code validates only once),
+		// or too many attempts (5)
 		fmt.Printf("❌ Validation failed: %s\n", validationError.Message)
 
 		for field, messages := range validationError.ValidationErrors {
@@ -68,9 +69,9 @@ func main() {
 
 	if verification.VerifiedAt != nil {
 		fmt.Printf("✅ Verified at: %s\n", verification.VerifiedAt.Format(time.RFC3339))
-	} else {
-		fmt.Println("✅ Verified at: Just verified / already verified")
 	}
+
+	fmt.Println("💡 The code is used now: validating it again is refused, so record the verification on your side")
 
 	fmt.Printf("🧪 Attempts used: %d\n", verification.Attempts)
 }

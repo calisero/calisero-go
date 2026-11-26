@@ -194,9 +194,9 @@ func (s *VerificationService) Get(ctx context.Context, verificationID string) (*
 
 // Validate checks a code against the latest verification of a phone number.
 //
-// A wrong, expired or exhausted code (5 attempts) returns a *ValidationError
-// whose ValidationErrors["code"] says which; a phone number without a
-// verification a *NotFoundError. Checking a verified code again succeeds.
+// A code validates only once. A wrong, expired, already used or exhausted code (5
+// attempts) returns a *ValidationError whose ValidationErrors["code"] says which;
+// a phone number without a verification a *NotFoundError.
 func (s *VerificationService) Validate(ctx context.Context, request *VerificationCheckRequest) (*Response[Verification], error) {
 	if request == nil {
 		return nil, errNilRequest("Verifications.Validate")

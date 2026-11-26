@@ -143,7 +143,9 @@ type CreateMessageRequest struct {
 	// e.g. +40742123456. Required.
 	Recipient string
 
-	// Body is the text sent, at most 1600 characters. Required.
+	// Body is the text sent, at most 1600 characters. Required. On an account
+	// restricted to its approved link domains, every link in it must go to one of
+	// them.
 	Body string
 
 	// VisibleBody is what the API shows instead of Body in its answers, its lists
@@ -208,8 +210,10 @@ type MessageService struct {
 // Create sends a message, now or at its ScheduleAt.
 //
 // Its ResponseMeta holds what is left of the account's daily sending limit after
-// this message. Once the limit is reached it returns a *DailyLimitExceededError;
-// a refused recipient (invalid, or opted out) a *ValidationError.
+// this message. Once the limit is reached it returns a *DailyLimitExceededError.
+// A refused field returns a *ValidationError naming it: an invalid or opted-out
+// recipient, a sender not approved for the account, or, on an account restricted
+// to its approved link domains, a link of the body to any other domain.
 func (s *MessageService) Create(ctx context.Context, request *CreateMessageRequest) (*Response[Message], error) {
 	if request == nil {
 		return nil, errNilRequest("Messages.Create")

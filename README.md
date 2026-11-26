@@ -138,7 +138,7 @@ var validationError *calisero.ValidationError
 
 switch {
 case errors.As(err, &validationError):
-	// A wrong or expired code, or too many attempts (5)
+	// A wrong, expired or already used code, or too many attempts (5)
 	fmt.Println(validationError.Message)
 case err != nil:
 	return err
@@ -146,6 +146,9 @@ default:
 	fmt.Println("Verified at", response.Data.VerifiedAt)
 }
 ```
+
+A code validates only once: checking it again is refused like a wrong one, so record the verification on your side
+when `Validate` succeeds.
 
 To send a code you generate yourself, hide it in the API's answers and in the dashboard with `VisibleBody`:
 
@@ -340,6 +343,46 @@ if remaining := response.ResponseMeta.DailyRemaining; remaining != nil {
 
 The optional fields left at their zero value are not sent.
 
+`Sender` must be a sender approved for your account (Messages → Senders in the dashboard), written exactly as
+approved: the match is case-sensitive. A sender that is unknown, still pending, rejected or another account's is
+refused with a `*calisero.ValidationError` ("The sender is invalid or is not approved." on the `sender` field), and
+nothing is sent nor billed. Leave it empty to use the default sender until yours is approved.
+
+#### Approved Link Domains
+
+To keep phishing away from SMS, an account can be restricted to links on its approved domains: accounts created since
+the rule took effect are, and older ones only when Calisero restricts them. On such an account, every link in `Body`
+must go to a domain approved for it, test messages included. A link is anything a phone turns into one: an address
+with `http://` or `https://`, one that starts with `www.`, or a host with a top-level domain (`example.ro`,
+`example.ro/path`). The match is exact, `www.` aside; subdomains pass only when the domain was approved with them, and
+a link to an IP address never passes. Links Calisero shortens are checked by the address they open.
+
+A link to any other domain is refused with a `*calisero.ValidationError` on the `body` field, whose message names the
+refused domain: the message is not created, not sent and not billed. Ask for the domain in the dashboard
+(Messages › Link domains), or send the message without the link. Tell the refusals of `Messages.Create()` apart by
+the field:
+
+```go
+_, err := client.Messages.Create(ctx, request)
+
+var validationError *calisero.ValidationError
+if errors.As(err, &validationError) {
+	switch {
+	case len(validationError.ValidationErrors["body"]) > 0:
+		// e.g. "Links to example.live are not allowed for this account: it is not one of its approved link domains."
+		fmt.Println("Link domain not approved:", validationError.ValidationErrors["body"][0])
+	case len(validationError.ValidationErrors["sender"]) > 0:
+		fmt.Println("Sender not approved: use an approved one, or leave Sender empty")
+	default:
+		fmt.Println("Invalid request:", validationError.ValidationErrors)
+	}
+}
+```
+
+A scheduled message is checked again when it is due: if its domain was rejected or revoked meanwhile, it is not sent,
+its status becomes `failed` (`calisero.MessageStatusFailed`), the dashboard shows the error code 1005, and nothing is
+billed.
+
 #### Shorten URLs
 
 Set `ShortenURLs` to `true` and Calisero replaces every `http://` and `https://` link of the body with a short one
@@ -371,6 +414,10 @@ for _, link := range later.Data.ShortenedURLs {
 	fmt.Println(link.ClickCount, link.LastClick) // Number of clicks, last click or nil
 }
 ```
+
+Test messages, from a sandbox account or with a sandbox API key, keep their links as written: their
+`ShortenedURLs` is empty. On an account restricted to its approved link domains, a link is checked by the address it
+opens before it is shortened (see [Approved Link Domains](#approved-link-domains)).
 
 #### Get Message Details
 
@@ -497,11 +544,13 @@ if err != nil {
 	return err
 }
 
-fmt.Println(response.Data.Status) // verified (checking a verified code again succeeds)
+fmt.Println(response.Data.Status)     // verified
+fmt.Println(response.Data.VerifiedAt) // When it was verified
 ```
 
-A wrong or expired code, or a sixth attempt, returns a `*calisero.ValidationError` whose `ValidationErrors["code"]`
-says which; a phone number without a verification a `*calisero.NotFoundError`.
+A code validates only once: checking it again returns a `*calisero.ValidationError` ("The validation code has already
+been used."). So does a wrong or expired code, or a sixth attempt, `ValidationErrors["code"]` saying which; a phone
+number without a verification returns a `*calisero.NotFoundError`.
 
 ### Opt-outs
 
@@ -781,7 +830,7 @@ error that caused it, if any (`Err`). Its `Error()` names the status and the tra
 | `*UnauthorizedError` | `401`: invalid, revoked or missing API key, or a request from an IP the key does not allow |
 | `*ForbiddenError` | `403`: not allowed, e.g. deleting a message already sent, or another account's resource |
 | `*NotFoundError` | `404`: the resource does not exist |
-| `*ValidationError` | `422`: invalid request data; field errors in `ValidationErrors` |
+| `*ValidationError` | `422`: invalid request data, e.g. a sender or a link domain not approved; field errors in `ValidationErrors` |
 | `*DailyLimitExceededError` | `429`: the account reached its daily sending limit |
 | `*RateLimitedError` | `429`: more than 240 requests a minute |
 | `*ServerError` | `500`, `502`, `503`, `504` |
